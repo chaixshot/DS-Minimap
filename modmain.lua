@@ -77,7 +77,7 @@ local function AddMiniMap_main(inst)
         local SetHUDSize_base = controls.SetHUDSize
         controls.SetHUDSize = function(self)
             SetHUDSize_base(self)
-            scale = _G.TheFrontEnd:GetHUDScale()
+            scale = TheFrontEnd:GetHUDScale()
             if lasthudsize ~= scale then
                 controls.minimapwidget:PositionMiniMap()
                 local adjust_x, adjust_y = controls.minimapwidget:ResizeMapView()
