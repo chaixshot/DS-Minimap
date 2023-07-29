@@ -26,8 +26,8 @@ local MiniMapWidget = Class(Widget, function(self, IsDST, owner, playerfn, world
 	self.img:SetSize(self.mapsize.w, self.mapsize.h, 0)
 	self.bg:SetSize(self.mapsize.w, self.mapsize.h, 0)
 	self.bg:SetClickable(false)
-	self.tglbtn = self:AddChild(ImageButton())
-	self.tglbtn:SetOnClick(function()
+	self.togglebutton = self:AddChild(ImageButton())
+	self.togglebutton:SetOnClick(function()
 		self:ToggleOpen()
 	end)
 	self.quicksavebtn = self:AddChild(ImageButton())
@@ -130,10 +130,10 @@ end
 function MiniMapWidget:ShowHideButtons()
     if self.open then
         if self.focus then
-            if self.modconfig.tglbtn_show then
-                self.tglbtn:Show()
+            if self.modconfig.togglebutton_show then
+                self.togglebutton:Show()
             else
-                self.tglbtn:Hide()
+                self.togglebutton:Hide()
             end
             if self.modconfig.configbtn_show then
                 self.configbtn:Show()
@@ -147,14 +147,14 @@ function MiniMapWidget:ShowHideButtons()
             end
         else
             if self.modconfig.map_clickable then
-                self.tglbtn:Hide()
+                self.togglebutton:Hide()
                 self.configbtn:Hide()
                 self.quicksavebtn:Hide()
             else
-                if self.modconfig.tglbtn_show then
-                    self.tglbtn:Show()
+                if self.modconfig.togglebutton_show then
+                    self.togglebutton:Show()
                 else
-                    self.tglbtn:Hide()
+                    self.togglebutton:Hide()
                 end
                 if self.modconfig.configbtn_show then
                     self.configbtn:Show()
@@ -169,8 +169,10 @@ function MiniMapWidget:ShowHideButtons()
             end
         end
     else
-        if self.modconfig.tglbtn_show then
-            self.tglbtn:Show()
+        if self.modconfig.togglebutton_show then
+            self.togglebutton:Show()
+        else
+            self.togglebutton:Hide()
         end
         self.configbtn:Hide()
         self.quicksavebtn:Hide()
@@ -178,12 +180,12 @@ function MiniMapWidget:ShowHideButtons()
 end
 
 function MiniMapWidget:PositionToggleButton(dx, dy)
-    self.tglbtn:SetScale(
+    self.togglebutton:SetScale(
         self.modconfig.mapscale + 0.175,
         self.modconfig.mapscale + 0.175,
         self.modconfig.mapscale + 0.175
     )
-    local tglbtnsize_w, tglbtnsize_h = self.tglbtn:GetSize()
+    local tglbtnsize_w, tglbtnsize_h = self.togglebutton:GetSize()
     self.tglbtnsize = {w = tglbtnsize_w * self.modconfig.btn_scale, h = tglbtnsize_h * self.modconfig.btn_scale}
     self.tglbtnpos_horiz = 60
 
@@ -195,8 +197,8 @@ function MiniMapWidget:PositionToggleButton(dx, dy)
         self.mapsize_view.h / 2 + self.tglbtnpos_vert + dy,
         0
     )
-    self.tglbtn.o_pos = newbuttonpos
-    self.tglbtn:SetPosition(newbuttonpos:Get())
+    self.togglebutton.o_pos = newbuttonpos
+    self.togglebutton:SetPosition(newbuttonpos:Get())
     self:ShowHideButtons()
 end
 
@@ -238,9 +240,6 @@ function MiniMapWidget:PositionQuickSaveButton(dx, dy)
         w = quicksavebtnsize_w * self.modconfig.btn_scale,
         h = quicksavebtnsize_h * self.modconfig.btn_scale
     }
-    self.quicksavebtn.text:SetSize(40)
-    self.quicksavebtn:SetTextColour(.4, 1, .4, 1)
-    self.quicksavebtn:SetTextFocusColour(.4, 1, .4, 1)
     self.quicksavebtnpos_horiz = self.quicksavebtnsize.w / 1.8 + (self.mapsize_view.w - self.quicksavebtnsize.w / 2 * 2) / 10 * self.modconfig.quicksavebtn_horiz_pos
 
     self.quicksavebtnpos_vert = -self.quicksavebtnsize.h / 2 - (self.mapsize_view.h - self.quicksavebtnsize.h / 2 * 2) / 10 * self.modconfig.quicksavebtn_vert_pos
@@ -393,7 +392,7 @@ function MiniMapWidget:SetOpen(state)
         self.open = true
 
         -- Toggle Button --
-        self.tglbtn:SetText("Close Minimap")
+        self.togglebutton:SetText("Close Minimap")
 
         -- Config Button --
         self.configbtn:SetText("Configure Mod")
@@ -415,7 +414,7 @@ function MiniMapWidget:SetOpen(state)
         self.open = false
 
         -- Toggle Button --
-        self.tglbtn:SetText("Open Minimap")
+        self.togglebutton:SetText("Open Minimap")
 
         -- Config Button --
         self.configbtn:SetText("Configure Mod")
@@ -459,8 +458,10 @@ function MiniMapWidget:OnGainFocus()
     TheCamera:SetControllable(false)
 
     self:ShowHideButtons()
-    if self:IsOpen() then
-        self.tglbtn:Show()
+    if self.modconfig.togglebutton_show then
+        self.togglebutton:Show()
+    else
+        self.togglebutton:Hide()
     end
 end
 
@@ -481,7 +482,7 @@ function MiniMapWidget:OnLoseFocus()
     self:ShowHideButtons()
 
     if self:IsOpen() then
-        self.tglbtn:Hide()
+        self.togglebutton:Hide()
     end
 end
 

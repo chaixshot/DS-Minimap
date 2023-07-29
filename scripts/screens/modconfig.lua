@@ -2,16 +2,11 @@ require "util"
 require "strings"
 require "constants"
 local Screen = require "widgets/screen"
-local Button = require "widgets/button"
-local AnimButton = require "widgets/animbutton"
 local ImageButton = require "widgets/imagebutton"
 local Menu = require "widgets/menu"
-local Grid = require "widgets/grid"
 local Text = require "widgets/text"
 local Image = require "widgets/image"
-local UIAnim = require "widgets/uianim"
 local Spinner = require "widgets/spinner"
-local NumericSpinner = require "widgets/numericspinner"
 local Widget = require "widgets/widget"
 local PopupDialogScreen = require "screens/popupdialog"
 
@@ -35,13 +30,8 @@ local ModConfig = Class(Screen, function(self, IsDST)
 	self.minimapwidget = nil
 	self.modmain_updatestate_callback = nil
 	self.quicksaving = false
-	if self.IsDST then
-		self.CONTROL_PAGELEFT = CONTROL_SCROLLBACK
-		self.CONTROL_PAGERIGHT = CONTROL_FOCUS_RIGHT
-	else
-		self.CONTROL_PAGELEFT = CONTROL_PAGELEFT
-		self.CONTROL_PAGERIGHT = CONTROL_PAGERIGHT
-	end
+	self.CONTROL_PAGELEFT = CONTROL_SCROLLBACK
+    self.CONTROL_PAGERIGHT = CONTROL_SCROLLFWD
 end)
 
 function ModConfig:UpdateOptions()
@@ -51,10 +41,7 @@ function ModConfig:UpdateOptions()
         for i, v in ipairs(self.configfull) do
             -- Only show the option if it matches our format exactly
             if v.name and v.options and (v.saved ~= nil or v.default ~= nil) then
-                table.insert(
-                    options,
-                    {name = v.name, label = v.label, options = v.options, default = v.default, value = v.saved}
-                )
+                table.insert(options, {name = v.name, label = v.label, options = v.options, default = v.default, value = v.saved})
             end
         end
     end
@@ -189,17 +176,12 @@ function ModConfig:Open()
     if self.rightbutton then
         self.rightbutton:Kill()
     end
-    self.rightbutton =
-        self.optionspanel:AddChild(
-        ImageButton("images/ui.xml", "scroll_arrow.tex", "scroll_arrow_over.tex", "scroll_arrow_disabled.tex")
-    )
-    self.rightbutton:SetPosition(440, 0, 0)
+    self.rightbutton = self.optionspanel:AddChild( ImageButton("images/ui.xml", "scroll_arrow.tex", "scroll_arrow_over.tex", "scroll_arrow_disabled.tex") )
+    self.rightbutton:SetPosition(470, 0, 0)
     self.rightbutton:SetScale(.9)
-    self.rightbutton:SetOnClick(
-        function()
-            self:Scroll(ROWS_PER_COL)
-        end
-    )
+    self.rightbutton:SetOnClick(function()
+        self:Scroll(ROWS_PER_COL)
+    end)
     if #options <= ROWS_PER_COL * COLS then -- Only show the arrow if we have a ton of options
         self.rightbutton:Hide()
     end
@@ -207,31 +189,17 @@ function ModConfig:Open()
     if self.leftbutton then
         self.leftbutton:Kill()
     end
-    self.leftbutton =
-        self.optionspanel:AddChild(
-        ImageButton("images/ui.xml", "scroll_arrow.tex", "scroll_arrow_over.tex", "scroll_arrow_disabled.tex")
-    )
-    self.leftbutton:SetPosition(-440, 0, 0)
+    self.leftbutton = self.optionspanel:AddChild( ImageButton("images/ui.xml", "scroll_arrow.tex", "scroll_arrow_over.tex", "scroll_arrow_disabled.tex") )
+    self.leftbutton:SetPosition(-470, 0, 0)
     self.leftbutton:SetScale(-.9, .9, .9)
-    self.leftbutton:SetOnClick(
-        function()
-            self:Scroll(-ROWS_PER_COL)
-        end
-    )
+    self.leftbutton:SetOnClick(function()
+        self:Scroll(-ROWS_PER_COL)
+    end)
     self.leftbutton:Hide()
 
     TheInputProxy:StartMappingControls()
     self.is_mapping = false
     self.mapping_idx = nil
-    self.inputhandlers = {}
-    table.insert(
-        self.inputhandlers,
-        TheInput:AddControlMappingHandler(
-            function(deviceId, controlId, inputId, hasChanged)
-                self:OnControlMapped(deviceId, controlId, inputId, hasChanged)
-            end
-        )
-    )
 
     self.optionwidgets = {}
 
@@ -247,9 +215,6 @@ function ModConfig:Close()
     end
     self.open = false
     TheInputProxy:StopMappingControls()
-    for k, v in pairs(self.inputhandlers) do
-        v:Remove()
-    end
 end
 
 function ModConfig:MapControl(idx, name, value)
@@ -271,6 +236,11 @@ function ModConfig:MapControl(idx, name, value)
     TheInputProxy:MapControl(deviceId, controlId)
     self.is_mapping = true
     self.mapping_idx = idx
+    
+    self.inputhandlers = {}
+    table.insert(self.inputhandlers, TheInput:AddControlMappingHandler(function(deviceId, controlId, inputId, hasChanged)
+        self:OnControlMapped(deviceId, controlId, inputId, hasChanged)
+    end))
 end
 
 local modkey_conv_tbl = {
@@ -342,7 +312,7 @@ function ModConfig:JoinFromInputs(device, numInputs, inputs)
         new_text_value = "Disable"
         new_value = "1+1+0+0+0+0"
     elseif numInputs == 1 then
-        new_text_value = "KEY " .. new_text_value
+        new_text_value = new_text_value
     end
 
     return new_text_value, new_value
@@ -355,26 +325,16 @@ function ModConfig:OnControlMapped(deviceId, controlId, inputId, hasChanged)
         TheFrontEnd:GetSound():PlaySound("dontstarve/HUD/click_move")
         if hasChanged then
             for k, v in pairs(self.optionwidgets) do
-                if v.root.button and v.root.button.option_idx == self.mapping_idx then
-                    local device, numInputs, input1, input2, input3, input4, intParam =
-                        TheInputProxy:GetLocalizedControl(deviceId, controlId, false, true)
-                    local new_text_value, new_value =
-                        self:JoinFromInputs(device, numInputs, {[1] = input1, [2] = input2, [3] = input3, [4] = input4})
-                    v.root.button:SetText(new_text_value)
+                if v.root.label and v.root.label.option_idx == self.mapping_idx then
+                    local device, numInputs, input1, input2, input3, input4, intParam =TheInputProxy:GetLocalizedControl(deviceId, controlId, false, true)
+                    local new_text_value, new_value = self:JoinFromInputs(device, numInputs, {[1] = input1, [2] = input2, [3] = input3, [4] = input4})
+                    v.root.label:SetString(new_text_value)
                     if options[self.mapping_idx].default ~= new_value then
-                        v.root.button:SetTextColour(1, 0, 0, 1)
-                        v.root.button:SetTextFocusColour(1, 0, 0, 1)
+                        v.root.label:SetColour(1, 0, 0, 1)
                     else
-                        v.root.button:SetTextColour(0, 0, 1, 1)
-                        v.root.button:SetTextFocusColour(0, 0, 1, 1)
+                        v.root.label:SetColour(1, 1, 1, 1)
                     end
                     options[self.mapping_idx].value = new_value
-                end
-                local changedFromOriginal = TheInputProxy:HasMappingChanged(deviceId, controlId)
-                if changedFromOriginal then
-                    --v.bg:Show()
-                else
-                    --v.bg:Hide()
                 end
             end
         end
@@ -386,6 +346,10 @@ function ModConfig:OnControlMapped(deviceId, controlId, inputId, hasChanged)
 
         self.is_mapping = false
         self.mapping_idx = nil
+        
+        for k, v in pairs(self.inputhandlers) do
+            v:Remove()
+        end
     end
 end
 
@@ -473,7 +437,7 @@ function ModConfig:UpdateState()
     self.map_trans = self:GetModConfigDataFull("Map Transparency")
     self.bg_trans = self:GetModConfigDataFull("BG Image Transparency")
     self.btn_scale = self:GetModConfigDataFull("Button Scale")
-    self.tglbtn_show = self:GetModConfigDataFull("Toggle Button Show")
+    self.togglebutton_show = self:GetModConfigDataFull("Toggle Button Show")
     self.tglbtn_horiz_pos = self:GetModConfigDataFull("Toggle Button Horiz Pos")
     self.tglbtn_vert_pos = self:GetModConfigDataFull("Toggle Button Vert Pos")
     self.configbtn_show = self:GetModConfigDataFull("Config Button Show")
@@ -585,21 +549,11 @@ function ModConfig:InitializeModInfo(modname, modinfoname)
             --table.insert( self.failedmods, {name=modname,error=r} )
             env.failed = true
         elseif env.api_version == nil or env.api_version < MOD_API_VERSION then
-            local old =
-                "Mod " ..
-                modname ..
-                    " was built for an older version of the game and requires updating. (api_version is version " ..
-                        tostring(env.api_version) .. ", game is version " .. MOD_API_VERSION .. ".)"
-            modinfo_message =
-                modinfo_message ..
-                "Old API! (mod: " .. tostring(env.api_version) .. " game: " .. MOD_API_VERSION .. ") "
+            local old = "Mod " .. modname .. " was built for an older version of the game and requires updating. (api_version is version " .. tostring(env.api_version) .. ", game is version " .. MOD_API_VERSION .. ".)"
+            modinfo_message = modinfo_message .. "Old API! (mod: " .. tostring(env.api_version) .. " game: " .. MOD_API_VERSION .. ") "
             env.old = true
         elseif env.api_version > MOD_API_VERSION then
-            local old =
-                "api_version for " ..
-                modname ..
-                    " is in the future, please set to the current version. (api_version is version " ..
-                        env.api_version .. ", game is version " .. MOD_API_VERSION .. ".)"
+            local old = "api_version for " .. modname .. " is in the future, please set to the current version. (api_version is version " .. env.api_version .. ", game is version " .. MOD_API_VERSION .. ".)"
             print("Error loading mod: " .. ModInfoname(modname) .. "!\n " .. old .. "\n")
             --table.insert( self.failedmods, {name=modname,error=old} )
             env.failed = true
@@ -621,18 +575,10 @@ function ModConfig:InitializeModInfo(modname, modinfoname)
                 if env[v] == nil then
                     if v == "dont_starve_compatible" then
                         -- Print a warning but let the mod load
-                        print(
-                            "WARNING loading modinfo.lua: " ..
-                                modname ..
-                                    " does not specify if it is compatible with the base game. It may not work properly."
-                        )
+                        print( "WARNING loading modinfo.lua: " .. modname .. " does not specify if it is compatible with the base game. It may not work properly." )
                     elseif v == "reign_of_giants_compatible" then
                         -- Print a warning but let the mod load
-                        print(
-                            "WARNING loading modinfo.lua: " ..
-                                modname ..
-                                    " does not specify if it is compatible with Reign of Giants. It may not work properly."
-                        )
+                        print( "WARNING loading modinfo.lua: " .. modname .. " does not specify if it is compatible with Reign of Giants. It may not work properly." )
                     elseif v == "configuration_options" then
                         -- Do nothing. It's perfectly fine not to have config options!
                     else
@@ -679,29 +625,26 @@ end
 function ModConfig:LoadModConfigurationOptions(configname, modinfo)
     -- Try to find saved config settings first
     local filename = KnownModIndex:GetModConfigurationPath(configname)
-    TheSim:GetPersistentString(
-        filename,
-        function(load_success, str)
-            if load_success == true then
-                local success, savedata = RunInSandbox(str)
-                if success and string.len(str) > 0 then
-                    --print ("loaded "..filename)
-                    -- Carry over saved data from old versions when possible
-                    if self:HasModConfigurationOptions(modinfo) then
-                        KnownModIndex:UpdateConfigurationOptions(modinfo.configuration_options, savedata)
-                    else
-                        modinfo.configuration_options = savedata
-                    end
+    TheSim:GetPersistentString(filename, function(load_success, str)
+        if load_success == true then
+            local success, savedata = RunInSandbox(str)
+            if success and string.len(str) > 0 then
+                --print ("loaded "..filename)
+                -- Carry over saved data from old versions when possible
+                if self:HasModConfigurationOptions(modinfo) then
+                    KnownModIndex:UpdateConfigurationOptions(modinfo.configuration_options, savedata)
                 else
-                    print("Could not load " .. filename)
+                    modinfo.configuration_options = savedata
                 end
             else
                 print("Could not load " .. filename)
             end
-
-            -- callback()
+        else
+            print("Could not load " .. filename)
         end
-    )
+
+        -- callback()
+    end)
 
     if modinfo and modinfo.configuration_options then
         return modinfo.configuration_options
@@ -918,43 +861,42 @@ function ModConfig:RefreshOptions()
             local group = self.optionspanel:AddChild(Widget("SpinnerGroup"))
             
             if options[idx].name == "Toggle Minimap Key" or options[idx].name == "Center Character Key" or options[idx].name == "Config Shotcut Key" then
-                local button_height = 50
-                local w = 220
-                local button = group:AddChild(ImageButton())
-
-                button:SetFont(BUTTONFONT)
-                button:SetTextSize(28)
                 local value = options[idx].value or options[idx].saved or options[idx].default
                 local device, numInputs, inputs = self:SplitToInputs(value)
                 local new_text_value, new_value = self:JoinFromInputs(device, numInputs, inputs)
-                button:SetText(new_text_value)
+                local label_width = 200
+                
+                local label = group:AddChild(Text(BUTTONFONT, 30, new_text_value))
+                label:SetScale(1, 1)
+                label:SetPosition(40, 0, 0)
+                label:SetRegionSize(label_width, 50)
+                label:SetHAlign(ANCHOR_LEFT)
+                
+                local button_height = 50
+                local w = 170
+                local button = label:AddChild(ImageButton())
+                button:SetFont(BUTTONFONT)
+                button:SetTextSize(28)
+                
+                button:SetText(options[idx].label or options[idx].name)
                 if options[idx].default ~= new_value then
-                    button:SetTextColour(0, 1, 0, 1)
+                    label:SetColour(0, 1, 0, 1)
                 else
-                    button:SetTextColour(0, 0, 1, 1)
+                    label:SetColour(1, 1, 1, 1)
                 end
                 local button_w, button_h = button:GetSize()
                 local button_scale_w = w / button_w
                 local button_scale_h = button_height / button_h
                 button:SetScale(button_scale_w, button_scale_h)
-                button:SetPosition(35, 0, 0)
+                button:SetPosition(-label_width / 2 - 85, 0, 0)
                 button:SetOnClick(function()
                     self:MapControl(idx, options[idx].name, new_text_value)
                 end)
 
+                group.label = label
+                label.option_idx = idx
+
                 local spacing = 55
-                local label_width = 180 * 1 / button_scale_w
-
-                local label = button:AddChild(Text(BUTTONFONT, 30, (options[idx].label or options[idx].name) or STRINGS.UI.MODSSCREEN.UNKNOWN_MOD_CONFIG_SETTING))
-                
-                label:SetScale(1 / button_scale_w, 1 / button_scale_h)
-                label:SetPosition(-label_width / 2 - 105 * 1 / button_scale_w, 0, 0)
-                label:SetRegionSize(label_width, 50)
-                label:SetHAlign(ANCHOR_MIDDLE)
-
-                group.button = button
-                button.option_idx = idx
-
                 if k <= ROWS_PER_COL then
                     group:SetPosition(-155, (ROWS_PER_COL - 1) * spacing * .5 - (k - 1) * spacing - 10, 0)
                     table.insert(self.left_spinners, button)
@@ -975,10 +917,6 @@ function ModConfig:RefreshOptions()
                 local spin_height = 50
                 local w = 220
                 local spinner = group:AddChild(Spinner(spin_options, w, spin_height, {font=BUTTONFONT, size=25}, nil, nil, nil, true, nil, nil))
-                spinner.changed_image = spinner:AddChild(Image("images/ui.xml", "option_highlight.tex"))
-                spinner.changed_image:ScaleToSize(w, spin_height)
-                spinner.changed_image:SetClickable(false)
-                spinner.changed_image:MoveToBack()
                 
                 local default_value = options[idx].value
                 if default_value == nil then
@@ -1007,6 +945,10 @@ function ModConfig:RefreshOptions()
                             spinner:SetTextColour(0, 0, 0, 1) -- Black
                         end
                     end
+                    
+                    if options[idx].name == "Updates Per Second" then
+                        self.minimapwidget:SetUPS(data)
+                    end
                 end
 
                 spinner:SetSelected(default_value)
@@ -1021,13 +963,13 @@ function ModConfig:RefreshOptions()
                 spinner:SetPosition(35, 0, 0)
 
                 local spacing = 55
-                local label_width = 180
+                local label_width = 200
 
                 local label = spinner:AddChild(Text(BUTTONFONT, 30, (options[idx].label or options[idx].name) or STRINGS.UI.MODSSCREEN.UNKNOWN_MOD_CONFIG_SETTING))
                 
                 label:SetPosition(-label_width / 2 - 105, 0, 0)
                 label:SetRegionSize(label_width, 50)
-                label:SetHAlign(ANCHOR_MIDDLE)
+                label:SetHAlign(ANCHOR_RIGHT)
 
                 if k <= ROWS_PER_COL then
                     group:SetPosition(-155, (ROWS_PER_COL - 1) * spacing * .5 - (k - 1) * spacing - 10, 0)
