@@ -57,7 +57,7 @@ function ModConfig:Open()
     end
 
     Screen._ctor(self, "ModConfig")
-    SetPause(true, "inv")
+    SetPause(true, "pause")
     self.open = true
 
     self.left_spinners = {}
