@@ -17,26 +17,18 @@ local function GetTheWorld()
     return IsDST and _G.TheWorld or _G.GetWorld()
 end
 
-local function AddMiniMap_main(inst)
+local function AddMiniMap(controls)
     -- for some reason, without this the game would crash without an error when calling controls.top_root:AddChild
     -- too lazy to track down the cause, so just using this workaround
-    inst:DoTaskInTime(0, function(inst)
-        if GetThePlayer() ~= inst then
-            return
-        end
-
-        local player = inst
-
+    controls.inst:DoTaskInTime(0, function()
         -- add the minimap widget and set its position
         local MiniMapWidget = require "widgets/minimapwidget"
         local ModConfig = require "screens/modconfig"
 
-        local controls = player.HUD.controls
-
         local modconfig = ModConfig(IsDST)
         modconfig:Init()
 
-        controls.minimapwidget = controls.top_root:AddChild(MiniMapWidget(IsDST, player, GetThePlayer, GetTheWorld, modconfig))
+        controls.minimapwidget = controls.top_root:AddChild(MiniMapWidget(IsDST, GetThePlayer, GetTheWorld, modconfig))
         modconfig.minimapwidget = controls.minimapwidget
 
         local screensize = {TheSim:GetScreenSize()}
@@ -77,7 +69,7 @@ local function AddMiniMap_main(inst)
         local SetHUDSize_base = controls.SetHUDSize
         controls.SetHUDSize = function(self)
             SetHUDSize_base(self)
-            scale = TheFrontEnd:GetHUDScale()
+            scale = _G.TheFrontEnd:GetHUDScale()
             if lasthudsize ~= scale then
                 controls.minimapwidget:PositionMiniMap()
                 local adjust_x, adjust_y = controls.minimapwidget:ResizeMapView()
@@ -241,7 +233,7 @@ local function AddMiniMap_main(inst)
         minimapwidget = controls.minimapwidget
     end)
 end
-AddPlayerPostInit(AddMiniMap_main)
+AddClassPostConstruct("widgets/controls", AddMiniMap)
 
 -- special case: ToggleMap gets bypassed when the map gets hidden while on the map screen
 local MapScreen = require "screens/mapscreen"
@@ -256,23 +248,24 @@ MapScreen.OnControl = function( self, control, down, ... )
 	return unpack(returnValues)
 end
 
--- keep track of zooming while on the map screen
-local MapWidget = require "widgets/mapwidget"
-
-MapWidget_OnZoomIn_base = MapWidget.OnZoomIn
-MapWidget.OnZoomIn = function(self, deltazoom, ...)
-	local returnValues = {MapWidget_OnZoomIn_base( self, deltazoom, ... )}
-	if minimapwidget and self.shown then
-		minimapwidget.mapscreenzoom = math.max(0,minimapwidget.mapscreenzoom + (deltazoom or -0.1))
-	end
-	return unpack(returnValues)
+function AddMiniMap_mapwidget(inst)
+    -- keep track of zooming while on the map screen
+    --local MapWidget = require "widgets/mapwidget"
+    MapWidget_OnZoomIn_base = inst.OnZoomIn
+    inst.OnZoomIn = function(self)
+        MapWidget_OnZoomIn_base(self)
+        if self.shown then
+            local controls = GetThePlayer().HUD.controls
+            controls.minimapwidget.mapscreenzoom = math.max(0, controls.minimapwidget.mapscreenzoom - 1)
+        end
+    end
+    MapWidget_OnZoomOut_base = inst.OnZoomOut
+    inst.OnZoomOut = function(self)
+        MapWidget_OnZoomOut_base(self)
+        if self.shown then
+            local controls = GetThePlayer().HUD.controls
+            controls.minimapwidget.mapscreenzoom = controls.minimapwidget.mapscreenzoom + 1
+        end
+    end
 end
-
-MapWidget_OnZoomOut_base = MapWidget.OnZoomOut
-MapWidget.OnZoomOut = function(self, deltazoom, ...)
-	local returnValues = {MapWidget_OnZoomOut_base( self, deltazoom, ... )}
-	if minimapwidget and self.shown then
-		minimapwidget.mapscreenzoom = minimapwidget.mapscreenzoom + (deltazoom or 0.1)
-	end
-	return unpack(returnValues)
-end
+AddClassPostConstruct("widgets/mapwidget", AddMiniMap_mapwidget)
