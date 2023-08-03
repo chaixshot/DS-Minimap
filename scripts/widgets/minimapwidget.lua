@@ -1,6 +1,13 @@
+IsDST = _G.MOD_API_VERSION == 10
 local Widget = require "widgets/widget"
 local Image = require "widgets/image"
-local ImageButton = require "widgets/imagebutton"
+local TEMPLATES
+local ImageButton
+if IsDST then
+    TEMPLATES = require "widgets/redux/templates"
+else
+    ImageButton = require "widgets/imagebutton"
+end
 
 local MiniMapWidget = Class(Widget, function(self, IsDST, playerfn, worldfn, modconfig)
 	Widget._ctor(self, "MiniMapWidget")
@@ -23,21 +30,39 @@ local MiniMapWidget = Class(Widget, function(self, IsDST, playerfn, worldfn, mod
 	self.img:SetSize(self.mapsize.w, self.mapsize.h, 0)
 	self.bg:SetSize(self.mapsize.w, self.mapsize.h, 0)
 	self.bg:SetClickable(false)
-	self.togglebutton = self:AddChild(ImageButton())
-	self.togglebutton:SetOnClick(function()
-		self:ToggleOpen()
-	end)
-	self.quicksavebtn = self:AddChild(ImageButton())
-	self.quicksavebtn:SetOnClick(function()
-		self.modconfig:QuickSave()
-		self:PositionQuickSaveButton(0, 0)
-	end)
-	self.configbtn = self:AddChild(ImageButton())
-	self.configbtn:SetOnClick(function()
-		if self.modconfig:Open() then
-			TheFrontEnd:PushScreen(self.modconfig)
-		end
-	end)
+    if IsDST then
+        self.togglebutton = self:AddChild(TEMPLATES.StandardButton(function()
+        end, "togglebutton", {200, 70}
+        ))
+        self.togglebutton:SetFont(CHATFONT)
+        
+        self.quicksavebtn = self:AddChild(TEMPLATES.StandardButton(function()
+        end, "quicksavebtn", {200, 70}
+        ))
+        self.quicksavebtn:SetFont(CHATFONT)
+        
+        self.configbtn = self:AddChild(TEMPLATES.StandardButton(function()
+        end, "configbtn", {200, 70}
+        ))
+        self.configbtn:SetFont(CHATFONT)
+    else
+        self.togglebutton = self:AddChild(ImageButton())
+        self.quicksavebtn = self:AddChild(ImageButton())
+        self.configbtn = self:AddChild(ImageButton())
+    end
+    self.togglebutton:SetOnClick(function()
+        self:ToggleOpen()
+    end)
+    self.quicksavebtn:SetOnClick(function()
+        self.modconfig:QuickSave()
+        self:PositionQuickSaveButton(0, 0)
+    end)
+    self.configbtn:SetOnClick(function()
+        if self.modconfig:Open() then
+            TheFrontEnd:PushScreen(self.modconfig)
+        end
+    end)
+    
 	-- ups stuff, needs to be before SetOpen()
 	self.ups = 0 -- 0 if disabled, otherwise delay till next update
 	self.task_ups = nil -- the next update task
@@ -182,18 +207,12 @@ function MiniMapWidget:PositionToggleButton(dx, dy)
         self.modconfig.mapscale + 0.175,
         self.modconfig.mapscale + 0.175
     )
-    local tglbtnsize_w, tglbtnsize_h = self.togglebutton:GetSize()
-    self.tglbtnsize = {w = tglbtnsize_w * self.modconfig.btn_scale, h = tglbtnsize_h * self.modconfig.btn_scale}
-    self.tglbtnpos_horiz = 60
+    local togglebuttonsize_w, togglebuttonsize_h = self.togglebutton:GetSize()
+    self.togglebuttonsize = {w = togglebuttonsize_w * self.modconfig.btn_scale, h = togglebuttonsize_h * self.modconfig.btn_scale}
+    self.togglebuttonpos_horiz = 60
 
-    self.tglbtnpos_vert =
-        -self.tglbtnsize.h / 2 - (self.mapsize_view.h - self.tglbtnsize.h / 2 * 2) / 10 * self.modconfig.tglbtn_vert_pos
-    local newbuttonpos =
-        Point(
-        -self.mapsize_view.w / 2 + self.tglbtnpos_horiz + dx,
-        self.mapsize_view.h / 2 + self.tglbtnpos_vert + dy,
-        0
-    )
+    self.togglebuttonpos_vert = -self.togglebuttonsize.h / 2 - (self.mapsize_view.h - self.togglebuttonsize.h / 2 * 2) / 10 * self.modconfig.togglebutton_vert_pos
+    local newbuttonpos = Point( -self.mapsize_view.w / 2 + self.togglebuttonpos_horiz + dx, self.mapsize_view.h / 2 + self.togglebuttonpos_vert + dy, 0 )
     self.togglebutton.o_pos = newbuttonpos
     self.togglebutton:SetPosition(newbuttonpos:Get())
     self:ShowHideButtons()
@@ -212,15 +231,8 @@ function MiniMapWidget:PositionConfigButton(dx, dy)
     }
     self.configbtnpos_horiz = 60
 
-    self.configbtnpos_vert =
-        -self.configbtnsize.h / 2 -
-        (self.mapsize_view.h - self.configbtnsize.h / 2 * 2) / 10 * self.modconfig.configbtn_vert_pos
-    local newbuttonpos =
-        Point(
-        -self.mapsize_view.w / 2 + self.configbtnpos_horiz + dx,
-        self.mapsize_view.h / 2 + self.configbtnpos_vert + dy,
-        0
-    )
+    self.configbtnpos_vert = -self.configbtnsize.h / 2 - (self.mapsize_view.h - self.configbtnsize.h / 2 * 2) / 10 * self.modconfig.configbtn_vert_pos
+    local newbuttonpos = Point( -self.mapsize_view.w / 2 + self.configbtnpos_horiz + dx, self.mapsize_view.h / 2 + self.configbtnpos_vert + dy, 0 )
     self.configbtn.o_pos = newbuttonpos
     self.configbtn:SetPosition(newbuttonpos:Get())
     self:ShowHideButtons()
@@ -261,9 +273,11 @@ function MiniMapWidget:UpdateState()
     self.img:SetClickable(self.modconfig.map_clickable)
     self.bg:SetTint(1, 1, 1, self.modconfig.bg_trans)
     if not self.modconfig:IsQuickSaving() then
+        --    if self.modconfig.default_zoom < 3 then
         local zoomdiff = (1.9 - 1.0) / self.uvscalechangelevel2
         if self.modconfig.default_zoom < zoomdiff then
             self.minimapzoom = 0
+            --      self.uvscale = 1*((1-(1/self.uvscalechangelevel1)^(4-self.modconfig.default_zoom))/(1-1/self.uvscalechangelevel1)) -- Geometric progression : 1, 1.5, 1.75, 1.875, ...
             self.uvscale = 1.9 - self.uvscalechangelevel2 * self.modconfig.default_zoom
         else
             self.minimapzoom = self.modconfig.default_zoom - zoomdiff
@@ -372,15 +386,18 @@ function MiniMapWidget:SetOpen(state)
     if state == nil then
         state = true
     end
-    
+
     self.configbtn:SetText("Configure Mod") -- Config Button --
     self.quicksavebtn:SetText("Save Config") -- Quick Save Button --
-    
+        
     if state then
         self.open = true
-        
-        self.togglebutton:SetText("Close Minimap") -- Toggle Button --
-        self:ShowHideButtons() -- Show/Hide Buttons
+
+        -- Toggle Button --
+        self.togglebutton:SetText("Close Minimap")
+
+        -- Show/Hide Buttons
+        self:ShowHideButtons()
 
         self.img:Show()
         if self.modconfig.show_bg_img then
@@ -391,9 +408,11 @@ function MiniMapWidget:SetOpen(state)
         self:EnableMinimapUpdating()
     else
         self.open = false
-        
-        self.togglebutton:SetText("Open Minimap") -- Toggle Button --
-        self:ShowHideButtons() -- Show/Hide Buttons
+
+        self.togglebutton:SetText("Open Minimap")  -- Toggle Button --
+
+        -- Show/Hide Buttons
+        self:ShowHideButtons()
 
         self.img:Hide()
         self.bg:Hide()
@@ -405,17 +424,15 @@ function MiniMapWidget:IsOpen()
     return self.open
 end
 
-function MiniMapWidget:OnControl(control, down)
-    if MiniMapWidget._base.OnControl(self, control, down) then
-        return true
-    end
-    if TheInput:IsControlPressed(CONTROL_MAP_ZOOM_IN) then
-        self:OnZoomIn()
-        return true
-    elseif TheInput:IsControlPressed(CONTROL_MAP_ZOOM_OUT) then
-        self:OnZoomOut()
-        return true
-    end
+function MiniMapWidget:OnControl(control, down )
+	if MiniMapWidget._base.OnControl(self, control, down) then return true end
+	if down and control == CONTROL_MAP_ZOOM_IN then
+		self:OnZoomIn()
+		return true
+	elseif down and control == CONTROL_MAP_ZOOM_OUT then
+		self:OnZoomOut()
+		return true
+	end
 end
 
 function MiniMapWidget:OnGainFocus()
@@ -428,10 +445,12 @@ function MiniMapWidget:OnGainFocus()
     TheCamera:SetControllable(false)
 
     self:ShowHideButtons()
-    if self.modconfig.togglebutton_show then
-        self.togglebutton:Show()
-    else
-        self.togglebutton:Hide()
+    if self:IsOpen() then
+        if self.modconfig.togglebutton_show then
+            self.togglebutton:Show()
+        else
+            self.togglebutton:Hide()
+        end
     end
 end
 
@@ -462,7 +481,7 @@ end
 
 function MiniMapWidget:OnZoomIn()
     if self.shown then
-        if TheInput:IsKeyDown(KEY_CTRL) and not TheInput:IsKeyDown(KEY_SHIFT) then
+        if TheInput:IsKeyDown(KEY_CTRL) and not TheInput:IsKeyDown(KEY_SHIFT) then -- Change minimap size
             self.mapsize.w = self.mapsize.w + 25
             self.mapsize.h = self.mapsize.h + 25 * (self.mapsize_orig_h / self.mapsize_orig_w)
             local basesize_tiny = 0.125
@@ -481,7 +500,7 @@ function MiniMapWidget:OnZoomIn()
             self:SaveConfigValueMapPos(newmappos_x, newmappos_y)
             self:MakeDirty()
             self:ShowHideButtons()
-        else
+        else -- Chage map zooming
             if self.minimapzoom == 0 then
                 self.uvscale = math.min(1.9, self.uvscale + self.uvscalechangelevel2)
             end
@@ -495,7 +514,7 @@ end
 
 function MiniMapWidget:OnZoomOut()
     if self.shown then
-        if TheInput:IsKeyDown(KEY_CTRL) and not TheInput:IsKeyDown(KEY_SHIFT) then
+        if TheInput:IsKeyDown(KEY_CTRL) and not TheInput:IsKeyDown(KEY_SHIFT) then -- Change minimap size
             self.mapsize.w = self.mapsize.w - 25
             self.mapsize.h = self.mapsize.h - 25 * (self.mapsize_orig_h / self.mapsize_orig_w)
             local basesize_tiny = 0.125
@@ -514,7 +533,7 @@ function MiniMapWidget:OnZoomOut()
             self:SaveConfigValueMapPos(newmappos_x, newmappos_y)
             self:MakeDirty()
             self:ShowHideButtons()
-        else
+        else -- Chage map zooming
             local old_minimapzoom = self.minimapzoom
             local dozoom = true
             if self.minimapzoom == 0 then
